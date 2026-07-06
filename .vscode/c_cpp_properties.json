@@ -4,8 +4,10 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/SDL/include",
-                "${workspaceFolder}/SDL_image/include"
+                "${workspaceFolder}/vendor/SDL/include",
+                "${workspaceFolder}/vendor/SDL_image/include",
+                "${workspaceFolder}/vendor/imgui",
+                "${workspaceFolder}/vendor/imgui/backends"
             ],
             "defines": [],
             "compilerPath": "/usr/lib64/ccache/gcc",
