@@ -7,15 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
-# 1. Add official SDL submodules (they already have their own CMakeLists.txt)
 add_subdirectory(vendor/SDL)
 add_subdirectory(vendor/SDL_image)
 
-# ====================================================================
-# 2. Define ImGui as a standalone target without touching its folder
-# ====================================================================
+# Define ImGui static source group
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui)
-
 set(IMGUI_SRCS
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
@@ -38,10 +34,22 @@ target_include_directories(my_imgui PRIVATE
 )
 
 # ====================================================================
-# 3. Main Executable and Clean Linking
+# 2. Force external targets to compile fast regardless of IDE mode
+# ====================================================================
+# This forces maximum speed and strips debug symbols out of submodules 
+# without triggering the [cpptools] active configuration string error.
+target_compile_options(SDL3-shared PRIVATE "-O3" "-g0")
+target_compile_options(SDL3_image-shared PRIVATE "-O3" "-g0")
+target_compile_options(my_imgui PRIVATE "-O3" "-g0")
+
+# ====================================================================
+# 3. Setup your Main Executable (Inherits the IDE's select variant)
 # ====================================================================
 add_executable(main src/main.cpp)
 
+# ====================================================================
+# 4. Definitions, Includes, and Linking
+# ====================================================================
 target_compile_definitions(main PRIVATE SDL_MAIN_USE_CALLBACKS=1)
 
 # Main project only needs to know about SDL headers (ImGui headers come automatically via link)

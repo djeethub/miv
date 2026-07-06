@@ -156,12 +156,20 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     return SDL_APP_CONTINUE;
 }
 
+SDL_AppResult quit(SDL_AppResult rlt) {
+    // Safe ImGui cleanup before return
+    ImGui_ImplSDLRenderer3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+    return rlt;
+}
+
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     AppState *state = (AppState *)appstate;
 
     ImGui_ImplSDL3_ProcessEvent(event);
 
-    if (event->type == SDL_EVENT_QUIT) return SDL_APP_SUCCESS;
+    if (event->type == SDL_EVENT_QUIT) return quit(SDL_APP_SUCCESS);
     
     // Defer the popup request safely by marking our state boolean
     if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN && event->button.button == SDL_BUTTON_RIGHT) {
@@ -170,7 +178,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     
     if (event->type == SDL_EVENT_KEY_DOWN) {
         switch (event->key.key) {
-            case SDLK_ESCAPE: return SDL_APP_SUCCESS;
+            case SDLK_ESCAPE: return quit(SDL_APP_SUCCESS);
             case SDLK_SPACE:
                 if (state->total_files > 1) {
                     state->current_index = (state->current_index + 1) % state->total_files;
@@ -226,7 +234,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Exit", "Esc")) {
-            return SDL_APP_SUCCESS;
+            return quit(SDL_APP_SUCCESS);
         }
         ImGui::EndPopup();
     }
@@ -255,11 +263,6 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
         if (state->parent_dir) SDL_free(state->parent_dir);
         SDL_free(state);
     }
-
-    // Shutdown ImGui Contexts
-    ImGui_ImplSDLRenderer3_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
 
     if (texture) SDL_DestroyTexture(texture);
     if (renderer) SDL_DestroyRenderer(renderer);
