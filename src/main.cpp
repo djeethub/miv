@@ -44,7 +44,7 @@ struct AppState {
         return (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp");
     }
 
-    bool load_image_at_index(bool first_load) {
+    bool load_image_at_index() {
         if (image_files.empty() || !renderer) return false;
 
         const auto &filename = image_files[current_index];
@@ -64,12 +64,22 @@ struct AppState {
         if (!tex) return false;
         texture.reset(tex);
 
-        if (first_load && window) {
+        if (window) {
             SDL_DisplayID primary_display = SDL_GetPrimaryDisplay();
             SDL_Rect display_bounds;
             if (!SDL_GetDisplayUsableBounds(primary_display, &display_bounds)) {
+                display_bounds.x = 0; display_bounds.y = 0;
                 display_bounds.w = 1920; display_bounds.h = 1080;
             }
+
+            int current_x = 0, current_y = 0;
+            int current_w = 0, current_h = 0;
+            SDL_GetWindowPosition(window.get(), &current_x, &current_y);
+            SDL_GetWindowSize(window.get(), &current_w, &current_h);
+            int center_x = current_x + current_w / 2;
+            int center_y = current_y + current_h / 2;
+
+            // Compute new target size with scaling to fit display
             int target_w = static_cast<int>(img_w);
             int target_h = static_cast<int>(img_h);
             if (target_w > display_bounds.w || target_h > display_bounds.h) {
@@ -78,8 +88,16 @@ struct AppState {
                 target_w = static_cast<int>(img_w * scale);
                 target_h = static_cast<int>(img_h * scale);
             }
+
+            int new_x = center_x - target_w / 2;
+            int new_y = center_y - target_h / 2;
+            if (new_x < display_bounds.x) new_x = display_bounds.x;
+            if (new_y < display_bounds.y) new_y = display_bounds.y;
+            if (new_x + target_w > display_bounds.x + display_bounds.w) new_x = display_bounds.x + display_bounds.w - target_w;
+            if (new_y + target_h > display_bounds.y + display_bounds.h) new_y = display_bounds.y + display_bounds.h - target_h;
+
             SDL_SetWindowSize(window.get(), target_w, target_h);
-            SDL_SetWindowPosition(window.get(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+            SDL_SetWindowPosition(window.get(), new_x, new_y);
         }
 
         SDL_SetWindowTitle(window.get(), filename.c_str());
@@ -143,7 +161,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     }
 
     Uint32 window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIDDEN;
-    state->window.reset(SDL_CreateWindow("SDL3 Image Viewer", 800, 600, window_flags));
+    state->window.reset(SDL_CreateWindow("miv", 800, 600, window_flags));
     if (!state->window) { delete state; return SDL_APP_FAILURE; }
 
     state->renderer.reset(SDL_CreateRenderer(state->window.get(), nullptr));
@@ -151,7 +169,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
     SDL_SetWindowHitTest(state->window.get(), WindowHitTest, nullptr);
 
-    if (!state->load_image_at_index(true)) { delete state; return SDL_APP_FAILURE; }
+    if (!state->load_image_at_index()) { delete state; return SDL_APP_FAILURE; }
+    SDL_ShowWindow(state->window.get());
 
     // Initialize Dear ImGui Context
     IMGUI_CHECKVERSION();
@@ -189,13 +208,13 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             case SDLK_SPACE:
                 if (state->image_files.size() > 1) {
                     state->current_index = (state->current_index + 1) % state->image_files.size();
-                    state->load_image_at_index(false);
+                    state->load_image_at_index();
                 }
                 break;
             case SDLK_BACKSPACE:
                 if (state->image_files.size() > 1) {
                     state->current_index = (state->current_index + state->image_files.size() - 1) % state->image_files.size();
-                    state->load_image_at_index(false);
+                    state->load_image_at_index();
                 }
                 break;
         }
@@ -231,11 +250,11 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     if (ImGui::BeginPopup("mymenu")) {
         if (ImGui::MenuItem("Next Image", "Space", false, state->image_files.size() > 1)) {
             state->current_index = (state->current_index + 1) % state->image_files.size();
-            state->load_image_at_index(false);
+            state->load_image_at_index();
         }
         if (ImGui::MenuItem("Previous Image", "Backspace", false, state->image_files.size() > 1)) {
             state->current_index = (state->current_index + state->image_files.size() - 1) % state->image_files.size();
-            state->load_image_at_index(false);
+            state->load_image_at_index();
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Exit", "Esc")) {
