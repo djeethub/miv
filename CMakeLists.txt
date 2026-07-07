@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
-add_subdirectory(vendor/SDL)
-add_subdirectory(vendor/SDL_image)
+add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
+add_subdirectory(vendor/SDL_image EXCLUDE_FROM_ALL)
 
 # Define ImGui static source group
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui)
@@ -23,6 +23,7 @@ set(IMGUI_SRCS
 
 # Create a static library target named 'my_imgui' entirely inside this scope
 add_library(my_imgui STATIC ${IMGUI_SRCS})
+set_target_properties(my_imgui PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 # Configure includes for the 'my_imgui' target safely
 target_include_directories(my_imgui PUBLIC 
@@ -32,15 +33,6 @@ target_include_directories(my_imgui PUBLIC
 target_include_directories(my_imgui PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor/SDL/include
 )
-
-# ====================================================================
-# 2. Force external targets to compile fast regardless of IDE mode
-# ====================================================================
-# This forces maximum speed and strips debug symbols out of submodules 
-# without triggering the [cpptools] active configuration string error.
-target_compile_options(SDL3-shared PRIVATE "-O3" "-g0")
-target_compile_options(SDL3_image-shared PRIVATE "-O3" "-g0")
-target_compile_options(my_imgui PRIVATE "-O3" "-g0")
 
 # ====================================================================
 # 3. Setup your Main Executable (Inherits the IDE's select variant)
