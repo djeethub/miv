@@ -13,6 +13,7 @@
 #include <memory>
 #include <filesystem>
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <cstdio>
 
@@ -29,6 +30,7 @@ struct AppState {
     std::size_t current_index = 0;
     std::string parent_dir;
     bool trigger_context_menu = false;
+    float image_aspect = 1.0f;
 
     WindowPtr window{nullptr, SDL_DestroyWindow};
     RendererPtr renderer{nullptr, SDL_DestroyRenderer};
@@ -63,6 +65,7 @@ struct AppState {
 
         if (!tex) return false;
         texture.reset(tex);
+        image_aspect = img_h > 0.0f ? img_w / img_h : 1.0f;
 
         if (window) {
             SDL_DisplayID primary_display = SDL_GetPrimaryDisplay();
@@ -197,6 +200,26 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     ImGui_ImplSDL3_ProcessEvent(event);
 
     if (event->type == SDL_EVENT_QUIT) return quit(SDL_APP_SUCCESS);
+
+    if (event->type == SDL_EVENT_WINDOW_RESIZED && state->window && event->window.windowID == SDL_GetWindowID(state->window.get()) && state->image_aspect > 0.0f) {
+        int new_w = event->window.data1;
+        int new_h = event->window.data2;
+        if (new_w > 0 && new_h > 0) {
+            int adjusted_h = static_cast<int>(std::round(new_w / state->image_aspect));
+            int adjusted_w = static_cast<int>(std::round(new_h * state->image_aspect));
+            int target_w, target_h;
+            if (std::abs(adjusted_h - new_h) < std::abs(adjusted_w - new_w)) {
+                target_w = new_w;
+                target_h = adjusted_h;
+            } else {
+                target_w = adjusted_w;
+                target_h = new_h;
+            }
+            if (target_w > 0 && target_h > 0 && (target_w != new_w || target_h != new_h)) {
+                SDL_SetWindowSize(state->window.get(), target_w, target_h);
+            }
+        }
+    }
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN && event->button.button == SDL_BUTTON_RIGHT) {
         state->trigger_context_menu = true;
