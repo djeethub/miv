@@ -16,10 +16,49 @@
 #include <cmath>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 
 namespace fs = std::filesystem;
 
 constexpr int BORDER_SIZE = 5;
+
+namespace {
+std::string shell_quote(const std::string &value) {
+    std::string escaped = "'";
+    for (char c : value) {
+        if (c == '\'') {
+            escaped += "'\\''";
+        } else {
+            escaped += c;
+        }
+    }
+    escaped += "'";
+    return escaped;
+}
+
+bool open_file_location(const fs::path &file_path) {
+    const fs::path parent_dir = file_path.parent_path();
+    const std::string quoted_file = shell_quote(file_path.string());
+    const std::string quoted_dir = shell_quote(parent_dir.string());
+
+    const std::vector<std::string> commands = {
+        "nautilus --select " + quoted_file,
+        "nemo --select " + quoted_file,
+        "caja --select " + quoted_file,
+        "dolphin --select " + quoted_file,
+        "thunar --select " + quoted_file,
+        "xdg-open " + quoted_dir
+    };
+
+    for (const auto &command : commands) {
+        if (std::system(command.c_str()) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+}
 
 using WindowPtr = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>;
 using RendererPtr = std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)>;
@@ -55,15 +94,11 @@ struct AppState {
         // Release previous texture via RAII
         texture.reset();
 
-        SDL_Surface *surf = IMG_Load(full.string().c_str());
-        if (!surf) return false;
-
-        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer.get(), surf);
-        float img_w = static_cast<float>(surf->w);
-        float img_h = static_cast<float>(surf->h);
-        SDL_DestroySurface(surf);
-
+        SDL_Texture *tex = IMG_LoadTexture(renderer.get(), full.string().c_str());
         if (!tex) return false;
+        float img_w = static_cast<float>(tex->w);
+        float img_h = static_cast<float>(tex->h);
+
         texture.reset(tex);
         image_aspect = img_h > 0.0f ? img_w / img_h : 1.0f;
 
@@ -185,6 +220,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     ImGui_ImplSDLRenderer3_Init(state->renderer.get());
 
     SDL_ShowWindow(state->window.get());
+    SDL_SetHint(SDL_HINT_MAIN_CALLBACK_RATE, "waitevent");
     return SDL_APP_CONTINUE;
 }
 
@@ -221,6 +257,20 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         }
     }
 
+    if (event->type == SDL_EVENT_MOUSE_WHEEL && !ImGui::GetIO().WantCaptureMouse) {
+        if (event->wheel.y < 0) {
+            if (state->image_files.size() > 1) {
+                state->current_index = (state->current_index + 1) % state->image_files.size();
+                state->load_image_at_index();
+            }
+        } else if (event->wheel.y > 0) {
+            if (state->image_files.size() > 1) {
+                state->current_index = (state->current_index + state->image_files.size() - 1) % state->image_files.size();
+                state->load_image_at_index();
+            }
+        }
+    }
+
     if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN && event->button.button == SDL_BUTTON_RIGHT) {
         state->trigger_context_menu = true;
     }
@@ -242,6 +292,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 break;
         }
     }
+
     return SDL_APP_CONTINUE;
 }
 
@@ -278,6 +329,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         if (ImGui::MenuItem("Previous Image", "Backspace", false, state->image_files.size() > 1)) {
             state->current_index = (state->current_index + state->image_files.size() - 1) % state->image_files.size();
             state->load_image_at_index();
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Open File Location")) {
+            const auto &filename = state->image_files[state->current_index];
+            const fs::path full = fs::path(state->parent_dir) / filename;
+            open_file_location(full);
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Exit", "Esc")) {
