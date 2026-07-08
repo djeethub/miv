@@ -213,6 +213,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     // Initialize Dear ImGui Context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = NULL; // Disable default ini handling
     ImGui::StyleColorsDark();
 
     // Setup Platform/Renderer Backends
