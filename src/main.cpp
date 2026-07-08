@@ -96,8 +96,8 @@ struct AppState {
 
         SDL_Texture *tex = IMG_LoadTexture(renderer.get(), full.string().c_str());
         if (!tex) return false;
-        float img_w = static_cast<float>(tex->w);
-        float img_h = static_cast<float>(tex->h);
+        float img_w, img_h;
+        SDL_GetTextureSize(tex, &img_w, &img_h);
 
         texture.reset(tex);
         image_aspect = img_h > 0.0f ? img_w / img_h : 1.0f;
@@ -122,7 +122,7 @@ struct AppState {
             int target_h = static_cast<int>(img_h);
             if (target_w > display_bounds.w || target_h > display_bounds.h) {
                 float scale = SDL_min(static_cast<float>(display_bounds.w) / img_w,
-                                      static_cast<float>(display_bounds.h) / img_h) * 0.90f;
+                                      static_cast<float>(display_bounds.h) / img_h);
                 target_w = static_cast<int>(img_w * scale);
                 target_h = static_cast<int>(img_h * scale);
             }
@@ -290,6 +290,13 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                     state->load_image_at_index();
                 }
                 break;
+            case SDLK_L:
+                if (event->key.mod & SDL_KMOD_CTRL) {
+                    const auto &filename = state->image_files[state->current_index];
+                    const fs::path full = fs::path(state->parent_dir) / filename;
+                    open_file_location(full);
+                }
+                break;
         }
     }
 
@@ -331,7 +338,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             state->load_image_at_index();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Open File Location")) {
+        if (ImGui::MenuItem("Open File Location", "Ctrl+L")) {
             const auto &filename = state->image_files[state->current_index];
             const fs::path full = fs::path(state->parent_dir) / filename;
             open_file_location(full);
